@@ -1,0 +1,92 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
+:root{
+  --black:#000;
+  --white:#fff;
+  --space:0.75rem;
+  --radius:0.25rem;
+}
+
+*,*::before,*::after{ box-sizing:border-box; }
+
+body{
+  margin:0; padding:var(--space);
+  font-family:'Roboto',system-ui,sans-serif;
+  font-size:1.125rem; line-height:1.4;
+  color:var(--black); background:var(--white);
+}
+
+h1,h2{ margin:0 0 var(--space) 0; font-weight:700; }
+
+button,input{ font-family:inherit; font-size:1rem; }
+
+/* Buttons */
+.btn,.btn-outline{
+  padding:0.45rem 0.9rem; margin:0.5rem 0;
+  min-height:44px; min-width:44px;
+  border-radius:var(--radius); cursor:pointer;
+}
+.btn{ border:none; background:var(--black); color:var(--white); }
+.btn-outline{ background:transparent; border:2px solid var(--black); color:var(--black); }
+button:active{ opacity:0.85; }
+
+/* Form & Grid */
+.grid{ display:flex; flex-direction:column; gap:0.5rem; }
+.full{ width:100%; }
+label{ display:flex; align-items:center; gap:0.7rem; }
+
+/* Checkbox */
+input[type="checkbox"]{
+  appearance:none; width:1.3rem; height:1.3rem;
+  border:2px solid var(--black); border-radius:var(--radius); position:relative;
+}
+input[type="checkbox"]:checked::after{
+  content:""; position:absolute; inset:0.25rem; background:var(--black);
+}
+
+/* Inputs */
+input[type="text"],input[type="number"]{
+  padding:0.45rem 0.4rem; border:1px solid var(--black);
+  border-radius:var(--radius); background:var(--white); color:var(--black);
+}
+input[type="number"]{ width:5.5rem; }
+
+/* Spielerkarte */
+.player{ border:1px solid #ccc; border-radius:var(--radius); padding:1rem; margin-bottom:1rem; }
+.name{ font-weight:700; font-size:1.25rem; margin-bottom:0.6rem; display:flex; align-items:center; gap:0.3rem; }
+.crown{ font-size:1.3rem; }
+
+/* Phasen */
+.phases{ display:flex; flex-wrap:wrap; gap:0.35rem; margin-bottom:0.8rem; }
+.phase-box{
+  width:2.6rem; height:2.6rem;
+  display:flex; justify-content:center; align-items:center;
+  border:2px solid var(--black); border-radius:var(--radius);
+  background:var(--white); color:var(--black);
+  font-weight:700; cursor:pointer; user-select:none;
+}
+.phase-box.completed{
+  background:var(--black); color:var(--black);
+}
+
+.phase-label{
+  font-size:0.9rem;
+  font-weight:400;
+  white-space:nowrap;
+}
+
+/* Punkte */
+.points-row{ display:flex; align-items:center; gap:0.8rem; }
+.points{ font-size:1.25rem; min-width:3.2rem; text-align:right; }
+.add-input{ width:6rem; }
+
+/* Tabelle */
+table{ width:100%; border-collapse:collapse; margin-bottom:1rem; }
+th,td{ border:1px solid var(--black); padding:0.5rem 0.4rem; text-align:center; }
+
+/* Responsive */
+@media(min-width:600px){
+  body{ font-size:1.25rem; }
+  .grid{ flex-direction:row; flex-wrap:wrap; }
+  label{ width:calc(50% - 0.5rem); }
+}
