@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <title>Phase-10-Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<h1>Phase-10-Tracker</h1>
+<div id="app"></div>
+
+<script type="module">
+import * as db from "./storage.js";
+
+const $  = s => document.querySelector(s);
+const app = $("#app");
+let forceLobby = false;
+
+/* ---------- Root ---------- */
+function render() {
+  const raw  = localStorage.getItem("phase10_v1");
+  const data = raw ? JSON.parse(raw) : { players: [], history: [] };
+  app.innerHTML = "";
+  if (!forceLobby && data.currentGame) renderScoreboard(data);
+  else                                renderLobby(data);
+}
+
+/* ---------- Lobby ---------- */
+function renderLobby(data) {
+  const running = data.currentGame;
+
+  app.innerHTML = `
+    ${running ? `
+      <section>
+        <h2>Laufendes Spiel</h2>
+        <p>${running.scores.map(s =>
+             data.players.find(p => p.id === s.playerId)?.name || "?"
+        ).join(", ")}<br>
+        Gestartet: ${new Date(running.started).toLocaleString("de-DE")}</p>
+        <button id="resume" class="btn">Weiter spielen</button>
+      </section><hr>` : ""}
+
+    <section>
+      <h2>Neues Spiel</h2>
+      <form id="newGameForm">
+        <p>Mitspielende auswählen:</p>
+        <div id="playerGrid" class="grid">
+          ${data.players.map(p => `
+            <label><input type="checkbox" name="p" value="${p.id}"> ${p.name}</label>
+          `).join("")}
+        </div>
+
+        <p><input id="newName" class="full" type="text" placeholder="Neue*r Spieler*in" autocomplete="off" /></p>
+        <p><button type="button" id="addPlayer" class="btn full">Spieler*in hinzufügen</button></p>
+
+        <button type="submit" class="btn">Starten</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>Bisherige Sieger*innen</h2>
+      ${renderStatsTable(data)}
+    </section>
+
+    <hr />
+    <button id="reset" class="btn-outline">Alle Spielstände löschen</button>
+  `;
+
+  /* Events */
+  $("#resume")?.addEventListener("click", () => { forceLobby = false; render(); });
+
+  $("#addPlayer").onclick = () => {
+    const name = $("#newName").value.trim();
+    if (!name) return;
+    db.createPlayer(name);
+    $("#newName").value = "";
+    render();
+  };
+
+  $("#newGameForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const ids = Array.from(new FormData(e.target).getAll("p"));
+    if (ids.length < 2) return alert("Mindestens zwei Spieler*innen auswählen!");
+    db.startGame(ids);
+    forceLobby = false;
+    render();
+  });
+
+  $("#reset").onclick = () => {
+    if (confirm("Wirklich ALLE gespeicherten Daten löschen?")) {
+      db.clearAll();
+      forceLobby = false;
+      render();
+    }
+  };
+}
+
+/* ---------- Scoreboard ---------- */
+function renderScoreboard(data) {
+  const g = data.currentGame;
+
+  const playersHTML = g.scores.map(s => {
+    const pl = data.players.find(p => p.id === s.playerId) || { name: "?" };
+
+    /* Phasen-Kästchen */
+    const phaseBoxes = Array.from({ length: 10 }, (_, i) => {
+      const n   = i + 1;
+      const cls = n < s.phase ? "completed" : "";
+      return `<span class="phase-box ${cls}" data-player="${s.playerId}" data-phase="${n}">${n}</span>`;
+    }).join("");
+
+    const crown = s.phase > 10 ? '<span class="crown" title="Phasenmeister*in">👑</span>' : "";
+    const phaseLabel = s.phase > 10
+        ? '<span class="phase-label">Fertig</span>'
+        : `<span class="phase-label">ist&nbsp;in&nbsp;Phase&nbsp;${s.phase}</span>`;
+
+    return `
+      <div class="player">
+        <div class="name">${pl.name}${crown} ${phaseLabel}</div>
+        <div class="phases">${phaseBoxes}</div>
+        <div class="points-row">
+          <span class="points" id="pts-${s.playerId}">${s.points}</span>
+          <input type="number" class="add-input" data-player="${s.playerId}" placeholder="+" />
+          <button class="add-btn btn" data-player="${s.playerId}">+</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  app.innerHTML = `
+    <section><h2>Laufendes Spiel</h2>${playersHTML}</section>
+
+    <button id="finish"  class="btn">Spiel beenden</button>
+    <button id="cancel"  class="btn-outline">Abbrechen</button>
+    <button id="toLobby" class="btn-outline">Zur Lobby</button>
+  `;
+
+  /* Event-Delegation */
+  app.onclick = e => {
+    /* Phase-Toggle */
+    if (e.target.classList.contains("phase-box")) {
+      const id = e.target.dataset.player;
+      const n  = parseInt(e.target.dataset.phase, 10);
+      const current = g.scores.find(s => s.playerId === id).phase;
+
+      if (n === current)        db.updateScore(id, { phase: Math.min(current + 1, 11) });
+      else if (n < current)     db.updateScore(id, { phase: n });
+      render();
+      return;
+    }
+
+    /* Punkte hinzufügen */
+    if (e.target.classList.contains("add-btn")) {
+      const id  = e.target.dataset.player;
+      const inp = app.querySelector(`input.add-input[data-player="${id}"]`);
+      const val = parseInt(inp.value, 10) || 0;
+      if (val) {
+        const cur = g.scores.find(s => s.playerId === id).points;
+        db.updateScore(id, { points: cur + val });
+        inp.value = "";
+        render();
+      }
+    }
+  };
+
+  $("#finish").onclick = () => {
+    let winnerId = g.scores.find(s => s.phase > 10)?.playerId;
+    if (!winnerId) winnerId = g.scores.slice().sort((a, b) => a.points - b.points)[0].playerId;
+    db.finishGame(winnerId);
+    forceLobby = true;
+    render();
+  };
+
+  $("#cancel").onclick = () => {
+    if (confirm("Spiel wirklich verwerfen?")) {
+      const all = JSON.parse(localStorage.getItem("phase10_v1"));
+      delete all.currentGame;
+      localStorage.setItem("phase10_v1", JSON.stringify(all));
+      forceLobby = true;
+      render();
+    }
+  };
+
+  $("#toLobby").onclick = () => { forceLobby = true; render(); };
+}
+
+/* ---------- Statistik ---------- */
+function renderStatsTable(data) {
+  const { wins, players } = db.getStats();
+  if (!Object.keys(wins).length) return "<p>Noch keine Spiele.</p>";
+
+  const rows = Object.entries(wins)
+    .sort(([, a], [, b]) => b - a)
+    .map(([pid, w]) => `
+      <tr><td>${players.find(p => p.id === pid)?.name || "?"}</td><td>${w}</td></tr>
+    `).join("");
+
+  return `<table><thead><tr><th>Spieler*in</th><th>Siege</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+render();
+</script>
+</body>
+</html>
